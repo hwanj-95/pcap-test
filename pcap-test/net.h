@@ -50,6 +50,7 @@ struct libnet_ipv4_hdr
     u_int8_t ip_p;            /* protocol */
     u_int16_t ip_sum;         /* checksum */
     struct in_addr ip_src, ip_dst; /* source and dest address */
+
 };
 
 struct libnet_tcp_hdr

@@ -4,7 +4,11 @@
 #include <netinet/in.h> //ipv4 ip_addr
 #include "net.h"
 #include <arpa/inet.h> // inet_ntoa > net add change
-#include <netinet/tcp.h>
+//#include <netinet/tcp.h>
+#include <net/ethernet.h> //Use ETHERTYPE_IP
+#include <linux/in.h> //Use IPPROTO_TCP
+
+#define iplen 16
 
 void usage() {
     printf("syntax: pcap-test <interface>\n");
@@ -23,9 +27,9 @@ int main(int argc, char* argv[]) {
     struct libnet_tcp_hdr* tcp;
 
     int iphl; // IP header len
-    //int totl; // IP total len
+    int totl; // IP total len
     int tcphl; // tcp header len
-    //int payload;
+    int payload;// payload len
 
 
     char* dev = argv[1];
@@ -47,20 +51,26 @@ int main(int argc, char* argv[]) {
                 }
 
                 eth = (struct libnet_ethernet_hdr* )packet;
+                if(ntohs(eth->ether_type) != ETHERTYPE_IP) continue;
 
                 packet = packet+14;
                 ip = (struct libnet_ipv4_hdr* )packet;
                 iphl = (ip->ip_hl)*4; // ip header len
-                //totl = ntohs(ip->ip_len); // total len
-
-
+                totl = ntohs(ip->ip_len); // total len
                 packet = packet + iphl;
-                tcp = (struct libnet_tcp_hdr* )packet;
-                tcphl = (tcp->th_off)*4;
-                //payload = totl - iphl - tcphl;
 
 
-                if(ip->ip_p == 0x06){
+                if(ip->ip_p != IPPROTO_TCP) continue;
+
+
+                    tcp = (struct libnet_tcp_hdr* )packet;
+                    tcphl = (tcp->th_off)*4;
+
+//                    char buf[20];
+//                    inet_ntop(AF_INET,ip->ip_src, buf, INET_ADDRSTRLEN);
+                    //AF_INET > ipv4
+                    payload = totl - iphl - tcphl;
+
 
                 printf("       Ethernet Header\n");
                 printf("src mac : %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -75,8 +85,8 @@ int main(int argc, char* argv[]) {
                 printf("\n\n");
                 /////////////////////////////////////////////////////
                 printf("       IP Header\n");
-                printf("src IP : %s\n", inet_ntoa(ip ->ip_src)); //net byte order > host byte order
-                printf("dst IP : %s\n", inet_ntoa(ip ->ip_dst));
+                //printf("src IP : %s\n", inet_ntoa(ip ->ip_src)); //net byte order > host byte order
+                //printf("dst IP : %s\n", inet_ntoa(ip ->ip_dst));
                 printf("---------------------------");
                 printf("\n\n");
                 ///////////////////////////////////////////////////////
@@ -87,15 +97,20 @@ int main(int argc, char* argv[]) {
                 printf("\n");
                 printf("       Data\n");
 
-                for(int i = 0; i<16; i++){
-                     printf("%02x ", packet[14+iphl+tcphl]+i);
+
+                packet = packet+tcphl;
+                if(payload > 16){
+                payload = 16;
+                }
+
+                for(int i = 0; i<payload; i++){
+                    printf("%02x ", packet[+i]);
                     }
+                printf("\n");
                 printf("---------------------------");
                 }
                 printf("\n\n");
 
-                //////////////////////////////////////////////////////
-            }
     pcap_close(handle);
 }
 
